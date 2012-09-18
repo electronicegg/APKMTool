@@ -1,0 +1,536 @@
+#! /bin/bash
+# APKMTool 1.0
+# ------------------------
+# Modified Apk Multi-Tools
+# by mikko3024
+# 
+# Changelog:
+# 
+# 2012-09-17
+# - Added support for file selection
+# - Support for batch APK signing
+# 
+# 2012-09-17
+# - Added adb pull framework-res.apk
+# - Device check before ADB operations
+# - Set pulled APK as active APK
+# - Backup remote APK before ADB push
+# - Chmod 644 after ADB push (system APK)
+# - Compression level menu (default: 0)
+
+# 0) Pull APK
+ap () {
+	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then			# 25 if no device is connected
+		echo "Enter APK remote file location:" 
+		echo "i.e. /system/app/launcher.apk"
+		echo 
+		printf "Input: "
+		read INPUT
+		APK_FILE=`basename $INPUT`
+		adb pull "$INPUT" "apk-input/$APK_FILE"
+		if [ "$?" -ne "0" ] ; then
+			echo "Error: while pulling $APK_FILE"
+		fi
+		if [[ -f "apk-input/$APK_FILE" ]] ; then
+			echo "$APK_FILE copied."
+			fileName=${APK_FILE%*.apk}
+		fi
+	else
+		echo "Error. No device connected."
+	fi
+}
+
+# 1) Extract APK
+ex () {
+	cd tools
+	echo 
+	if [[ -n $fileName ]] ; then
+		rm -f "../apk-input/$fileName-signed.apk"
+		rm -f "../apk-input/$fileName-unsigned.apk"
+		rm -rf "../projects/$fileName.apk"
+		if [ ! -d "../projects/$fileName.apk" ] ; then
+			mkdir "../projects/$fileName.apk"
+		fi
+		clear
+		# Must be -o"../projects" and not -o "../projects"
+		7za x -o"../projects/$fileName.apk" ../apk-input/$fileName.apk
+	else
+		echo "Error. No active APK file set."
+	fi
+	cd ..
+}
+
+# 2) Optimize APK PNGs
+opt () {
+	echo 
+	cd tools
+	if [[ -n $fileName && -f ../projects/$fileName.apk/res ]] ; then
+		find "../projects/$fileName.apk/res" -name *.png | while read PNG_FILE ;
+		do
+			if [ `echo "$PNG_FILE" | grep -c "\.9\.png$"` -eq 0 ] ; then
+				optipng -o99 "$PNG_FILE"
+			fi
+		done
+		clear
+		echo 
+		echo "PNGs optimized."
+	else
+		echo "Error. Check active APK file and if APK is extracted."
+	fi
+	cd ..
+}
+
+sys () {
+	cd tools
+	7za a -tzip "../apk-input/$fileName-unsigned.apk" ../projects/$fileName.apk -mx0
+	cd ..
+}
+
+oa () {
+	rm -rf "projects/$fileName.apk/META-INF"
+	sys
+}
+
+# 3) Zip APK
+zip () {
+	if [[ -n $fileName ]] ; then
+		echo "1)  System  apk "
+		echo "2)  Regular apk "
+		echo "Enter selection: "
+		read RETVAL
+		if [ "x$RETVAL" = "x1" ] ; then
+			sys
+		elif [ "x$RETVAL" = "x2" ] ; then
+			oa
+		fi
+	else
+		echo "Error. No active APK file set."
+	fi
+}
+
+# 4) Sign APK
+si () {
+	echo 
+	cd tools
+	if [[ -n $fileName ]] ; then
+		INFILE="../apk-input/$fileName-unsigned.apk"
+		projectsFILE="../apk-input/$fileName-signed.apk"
+		if [ -e "$INFILE" ] ; then
+			#echo "java -jar signapk.jar -w testkey.x509.pem testkey.pk8 $INFILE $projectsFILE"
+			java -jar signapk.jar -w testkey.x509.pem testkey.pk8 "$INFILE" "$projectsFILE"
+			if [ "x$?" = "x0" ] ; then
+				rm -f "$INFILE"
+			fi
+		else
+			echo "Warning: cannot find file '$INFILE'"
+		fi
+	else
+		echo "Error. No active APK file set."
+	fi
+	cd ..
+}
+
+# 5) Zipalign
+zipa () {
+	echo 
+	if [[ -n $fileName ]] ; then
+		for STRING in "signed" "unsigned"
+		do
+			if [ -e "apk-input/$fileName-$STRING.apk" ] ; then
+				zipalign -fv 4 "apk-input/$fileName-$STRING.apk" "apk-input/$fileName-$STRING-aligned.apk"
+				if [ "x$?" = "x0" ] ; then
+					mv -f "apk-input/$fileName-$STRING-aligned.apk" "apk-input/$fileName-$STRING.apk"
+				fi
+			else
+				echo "zipalign: Cannot find file 'apk-input/$fileName-$STRING.apk'"
+			fi
+		done
+	else
+		echo "Error. No active APK file set."
+	fi
+}
+
+# 6) Install APK
+ins () {
+	echo 
+	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+		echo "Install APK: $fileName.apk (y/N)?"
+		read INPUT
+		if [ x$INPUT -e "xy" || x$INPUT -e "xY" ] ; then
+			#echo "adb install -r apk-input/$fileName-signed.apk"
+			adb install -r "apk-input/$fileName-signed.apk"
+		fi
+	else
+		echo "Error. No device connected."
+	fi
+}
+
+# 7) Zip / Sign / Install APK
+alli () {
+	echo "1    System  apk "
+	echo "2    Regular apk "
+	printf "%s" "Please make your decision: "
+	read RETVAL
+	if [ "x$RETVAL" = "x1" ] ; then
+		sys
+		ins
+	elif [ "x$RETVAL" = "x2" ] ; then
+		oa
+		zip
+		si
+		ins
+	fi
+}
+
+# 8)
+apu () {
+	if [[ -n $fileName ]] && [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+		echo "Enter remote APK location."
+		echo "i.e. /system/app/launcher.apk "
+		echo
+		printf "Input: "
+		read INPUT
+		adb root
+		adb remount
+		adb shell cp $INPUT $INPUT.backup
+		adb push "apk-input/$fileName-unsigned.apk" "$INPUT"
+		adb shell chmod 644 $INPUT
+	else
+		echo "Error. Check active APK file and make sure device is connected."
+	fi
+}
+
+# 9)
+de () {
+	cd tools
+	rm -f "../apk-input/$fileName-signed.apk"
+	rm -f "../apk-input/$fileName-unsigned.apk"
+	rm -rf "../projects/$fileName.apk"
+	
+	if [[ -n $fileName ]] ; then
+		#echo "java -jar apktool.jar d ../apk-input/$fileName.apk ../projects/$fileName.apk"
+		java -jar apktoolD.jar d ../apk-input/$fileName.apk "../projects/$fileName.apk"
+	else
+		echo 
+		echo "Error. No active APK file set."
+	fi
+	cd ..
+}
+
+# 10)
+co () {
+	cd tools
+	if [[ -n $fileName ]] ; then
+		baseAPK=`basename $fileName`
+		#echo "java -jar apktool.jar b ../projects/$fileName.apk ../apk-input/$fileName-unsigned.apk"
+		java -jar apktoolB.jar b "../projects/$fileName.apk" "../apk-input/$fileName-unsigned.apk"
+	else
+		echo "Error. No active APK file set."
+	fi
+	cd ..
+	retainorigfiles	
+}
+
+retainorigfiles () {
+	echo 
+	printf "Copy unmodified files to APK to reduce errors (Y/n)? "
+	read INPUT
+	if [[ x$INPUT ==  "xY" || x$INPUT ==  "xy" ]] ; then
+		cd tools
+		rm -rf ../keep
+		7za x -o"../keep" ../apk-input/$fileName.apk
+		echo 
+		echo "Delete all unmodified files in the /keep directory."
+		echo "If you modified an XML file, delete the resources.arsc file."
+		echo "Press Enter key to continue."
+		read DUMMY
+		7za a -tzip "../apk-input/$fileName-unsigned.apk" ../keep/* -mx0 -r
+		rm -rf ../keep
+		echo 
+		echo "Done"
+		cd ..
+	else
+		echo 
+		echo "Done"
+	fi
+}
+
+# 13)
+all () {
+	co
+	si
+	ins
+}
+
+# 14)
+bopt () {
+	cd tools
+	mkdir -p "../apk-optimize/original"
+	find "../apk-optimize" -name *.apk | while read APK_FILE ;
+	do
+		echo "Optimizing $APK_FILE"
+		# Extract
+		7za x -o"../apk-optimize/original" "../apk-optimize/$APK_FILE"
+		# PNG
+		find "../apk-optimize/original" -name *.png | while read PNG_FILE ;
+		do
+			if [ `echo "$PNG_FILE" | grep -c "\.9\.png$"` -eq 0 ] ; then
+				optipng -o99 "$PNG_FILE"
+			fi
+		done
+		# TODO optimize .ogg files
+		# Re-compress
+		7za a -tzip "../apk-optimize/temp.zip" ../apk-optimize/original/* -mx9
+		FILE=`basename "$APK_FILE"`
+		DIR=`dirname "$APK_FILE"`
+		mv -f "../apk-optimize/temp.zip" "$DIR/optimized-$FILE"
+		rm -rf ../apk-optimize/original/*
+	done
+	rm -rf "../apk-optimize/original"
+	cd ..
+}
+
+# 15)
+asi () {
+	
+	echo 
+	cd tools
+	find "../apk-sign" -name *.apk | while read APK_SIGN ;
+	do
+		java -jar signapk.jar -w testkey.x509.pem testkey.pk8 $APK_SIGN ${APK_SIGN%.*}-signed.apk
+		echo "${APK_SIGN%.*}-signed.apk - Done."
+	done
+	cd ..
+}
+
+# 16)
+ogg () {
+	cd tools
+	find "../ogg-optimize/" -name *.ogg | while read OGG_FILE ;
+	do
+		FILE=`basename "$OGG_FILE"`
+		DIR=`dirname "$OGG_FILE"`
+		printf "%s" "Optimizing: $FILE"
+		sox "$OGG_FILE" -C 0 "$DIR/optimized-$FILE"
+		if [ "x$?" = "x0" ] ; then
+			printf "\n"
+		else
+			printf "...%s\n" "Failed"
+		fi
+	done
+}
+
+# 17)
+selt () {
+	
+	cd apk-input
+	echo 
+	echo "Listing APK files:"
+	echo 
+	PS3="Choose APK: "
+	fileList=$(find -type f -name "*.apk")
+
+	select fileName in $fileList; do
+		if [[ -n "$fileName" ]] ; then
+			fileName=`basename $fileName`
+			fileName=${fileName%.*}
+			clear
+			echo 
+	        echo "Selected: $fileName.apk"
+	    fi
+	    if [[ -z "$fileName" ]] ; then
+	    	clear
+	    	echo 
+	        echo "Error. Wrong input."
+	        break
+	    fi
+	    break
+	done
+
+	if [[ -z $fileList ]] ; then
+		clear
+		echo 
+		echo "No APK files found."
+	fi
+	cd ..
+}
+
+# 18)
+frm () {
+	rm -rf $HOME/apktool
+	cd tools
+	printf "Pull framework-res.apk from an ADB device (Y/n)? "
+	read INPUT
+	if [[ x$INPUT == "xY" || x$INPUT == "xy" || x$INPUT == "x" ]] ;  then
+		if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+			echo 
+			echo "Pulling framework-res.apk from device."
+			adb pull /system/framework/framework-res.apk ./framework-res.apk
+			#adb pull /system/framework/framework-res.apk $HOME/apktool/framework/1.apk
+			java -jar apktool.jar "if" ./framework-res.apk
+		else
+			echo "Error. No device connected."
+		fi
+	fi
+	cd ..
+}
+
+# 19)
+clr () {
+	printf "Do you want to clean your current projects (y/N)? "
+	read INPUT
+	if [ "x$INPUT" = "xy" ] || [ "x$INPUT" = "xY" ] ; then
+		rm -rf apk-sign
+		rm -rf projects
+		rm -rf apk-optimize
+		mkdir apk-sign
+		mkdir apk-optimize
+		echo "Projects cleared."
+		echo 
+		printf "Clear apk-input directory (y/N)? "
+		read INPUT
+		if [ "x$INPUT" = "xy" ] || [ "x$INPUT" = "xY" ] ; then
+			echo "Directory apk-input cleared."
+			rm -rf apk-input
+			mkdir apk-input
+			fileName=""
+		fi
+		echo 
+		printf "Delete framework-res.apk import (y/N)? "
+		read INPUT
+		if [ "x$INPUT" = "xy" ] || [ "x$INPUT" = "xY" ] ; then
+			echo "File framework-res.apk deleted."
+			rm -rf $HOME/apktool
+		fi
+	else
+		echo "Canceled."
+	fi
+}
+
+setclv () {
+	echo "Current compression level: $clvl"
+	printf "Enter new compression level (Value 0-9): "
+	read INPUT
+	echo 
+	case "$INPUT" in
+		[0|1|2|3|4|5|6|7|8|9] )
+			clvl=$INPUT
+			echo "Compression level set at: $clvl"
+		;;
+
+		*)  echo "Invalid value."
+		;;
+	esac
+}
+
+quit () {
+	
+	exit 0
+}
+
+restart () {
+	echo 
+	echo "############################### Apk Multi-Tool ################################"
+	echo 
+	echo "- Simple Tasks (Image editing, etc.) ------------------------------------------"
+	echo "  0    Adb pull"
+	echo "  1    Extract apk"
+	echo "  2    Optimize images inside (Only if \"Extract Apk\" was selected)"
+	echo "  3    Zip apk"
+	echo "  4    Sign apk (Dont do this if its a system apk)"
+	echo "  5    Zipalign apk (Do once apk is created/signed)"
+	echo "  6    Install apk (Dont do this if system apk, do adb push)"
+	echo "  7    Zip / Sign / Install apk (All in one step)"
+	echo "  8    Adb push (Only for system apk)"
+	echo 
+	echo "- Advanced Tasks (XML, Smali, etc.) -------------------------------------------"
+	echo "  9    Decompile apk"
+	echo "  10   Compile apk"
+	echo "  11   Sign apk"
+	echo "  12   Install apk"
+	echo "  13   Compile apk / Sign apk / Install apk (All in one step)"
+	echo 
+	echo "- Batch Operations ------------------------------------------------------------"
+	echo "  14   Batch Optimize Apk        (inside apk-optimize folder only)"
+	echo "  15   Batch Sign apk            (inside apk-sign folder only)"
+	echo "  16   Batch optimize ogg files  (inside ogg-optimize folder only)"
+	echo 
+	echo "-------------------------------------------------------------------------------"
+	echo "  17   Set active project"
+	echo "  18   Import framework-res.apk  (Perform apktool.jar if framework-res.apk)"
+	echo "  19   Clear project files"
+	echo "  20   Set compression level     (Current compression level: $clvl)"
+	echo "  00   Quit"
+	echo "-------------------------------------------------------------------------------"
+	printf "  Active File: "
+	if [[ -n $fileName ]] ; then
+		printf "$fileName.apk"
+	else
+		printf "NONE"
+	fi
+	printf "\n"
+	echo "-------------------------------------------------------------------------------"
+	echo 
+	printf "%s" "Enter selection: "
+	read ANSWER
+	reset
+	case "$ANSWER" in
+		 0)       ap ;;
+		 1)       ex ;;
+		 2)      opt ;;
+		 3)      zip ;;
+		 4)       si ;;
+		 5)     zipa ;;
+		 6)      ins ;;
+		 7)     alli ;;
+		 8)      apu ;;
+		 9)       de ;;
+		10)       co ;;
+		11)       si ;;
+		12)      ins ;;
+		13)      all ;;
+		14)     bopt ;;
+		15)      asi ;;
+		16)      ogg ;;
+		17)     selt ;;
+		18)      frm ;;
+		19)      clr ;;
+		20)   setclv ;;
+		"00")   quit ;;
+		 *)
+			echo "Unknown command: '$ANSWER'"
+		;;
+	esac
+}
+
+# Start
+printf '\033[8;43;80t'
+PATH="$PATH:$PWD/tools"
+reset
+fileName=""
+clvl="0"
+# Terminal Dimensions
+clear
+export PATH
+#echo $PATH
+# Test for needed programs and warn if missing
+ERROR="0"
+for PROGRAM in "optipng" "7za" "java" "sudo" "adb" "aapt" "sox"
+do
+	which "$PROGRAM" > /dev/null 
+	if [ "x$?" = "x1" ] ; then
+		ERROR="1"
+		echo "The program $PROGRAM is missing or is not in your PATH,"
+		echo "please install it or fix your PATH variable"
+	fi
+done
+if [ "x$ERROR" = "x1" ] ; then
+	exit 1
+fi
+
+clear
+while [ "1" = "1" ] ;
+do
+	restart
+done
+exit 0

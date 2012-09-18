@@ -1,0 +1,33 @@
+APKMTool 1.0
+
+This script set is a modified version of APK Multi-Tools 1.0 for Linux
+It is modified to support additional features missing on the Linux version (compared to the Windows version).
+
+Thanks to:
+- Daneshm90 the original developer of APK Manager
+- Brut.all for APKTool
+- JF for smali/baksmali
+- Raziel23x
+- farmatito for the initial Linux port
+
+Features: 
+- (To be accomplished)
+
+Requirements: 
+- Java 1.6
+- ADB
+
+Instructions (Linux): 
+- Place APK in the appropriate folder.
+- Open terminal and change-directory to APKMTool (Easiest way is to type "cd ")
+- Chmod 755 ./script
+- Chmod 755 all files apps inside tools folder
+- Run script by typing ./script
+
+Troubleshooting
+1. Make sure your path has no spaces
+2. Your filename has no wierd characters
+3. Java/ADB are in your path
+4. It's not a themed apk (if it is, expect .9 png errors, use as close to stock as possible)
+5. Look at the log to know whats happening
+6. If all else fails, post as much info as possible and we will try to assist you.
