@@ -21,7 +21,7 @@ Instructions (Linux):
 - Place APK in the appropriate folder.
 - Open terminal and change-directory to APKMTool (Easiest way is to type "cd ")
 - Chmod 755 ./script
-- Chmod 755 all files apps inside tools folder
+- Chmod 755 all files apps inside tools folder (chmod 755 ./tools/*)
 - Run script by typing ./script
 
 Troubleshooting
