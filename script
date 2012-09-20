@@ -1,6 +1,6 @@
 #! /bin/bash
 # APKMTool 1.0
-# ------------------------
+# ------------------------------------------------
 # Modified Apk Multi-Tools
 # by mikko3024
 # 
@@ -10,13 +10,22 @@
 # - Added support for file selection
 # - Support for batch APK signing
 # 
-# 2012-09-17
+# 2012-09-18
 # - Added adb pull framework-res.apk
 # - Device check before ADB operations
 # - Set pulled APK as active APK
 # - Backup remote APK before ADB push
 # - Chmod 644 after ADB push (system APK)
 # - Compression level menu (default: 0)
+# 
+# 2012-09-20
+# - Ask if APK to compile is system or regular APK
+# - Fix zip compression level implementation
+# - Prompt user to set an active APK if not set
+# - Make menus consistent
+# - Various code rewrite, fixes and typo corrections
+# 
+# ------------------------------------------------
 
 # 0) Pull APK
 ap () {
@@ -42,9 +51,9 @@ ap () {
 
 # 1) Extract APK
 ex () {
-	cd tools
 	echo 
 	if [[ -n $fileName ]] ; then
+		cd tools
 		rm -f "../apk-input/$fileName-signed.apk"
 		rm -f "../apk-input/$fileName-unsigned.apk"
 		rm -rf "../projects/$fileName.apk"
@@ -54,17 +63,17 @@ ex () {
 		clear
 		# Must be -o"../projects" and not -o "../projects"
 		7za x -o"../projects/$fileName.apk" ../apk-input/$fileName.apk
+		cd ..
 	else
-		echo "Error. No active APK file set."
+		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then echo $retval ; ex ; fi
 	fi
-	cd ..
 }
 
 # 2) Optimize APK PNGs
 opt () {
 	echo 
-	cd tools
-	if [[ -n $fileName && -f ../projects/$fileName.apk/res ]] ; then
+	if [[ -n $fileName || -f ../projects/$fileName.apk/res ]] ; then
+		cd tools
 		find "../projects/$fileName.apk/res" -name *.png | while read PNG_FILE ;
 		do
 			if [ `echo "$PNG_FILE" | grep -c "\.9\.png$"` -eq 0 ] ; then
@@ -74,15 +83,15 @@ opt () {
 		clear
 		echo 
 		echo "PNGs optimized."
+		cd ..
 	else
 		echo "Error. Check active APK file and if APK is extracted."
 	fi
-	cd ..
 }
 
 sys () {
 	cd tools
-	7za a -tzip "../apk-input/$fileName-unsigned.apk" ../projects/$fileName.apk -mx0
+	7za a -tzip "../apk-input/$fileName-unsigned.apk" ../projects/$fileName.apk -mx"$clvl"
 	cd ..
 }
 
@@ -94,25 +103,28 @@ oa () {
 # 3) Zip APK
 zip () {
 	if [[ -n $fileName ]] ; then
-		echo "1)  System  apk "
-		echo "2)  Regular apk "
-		echo "Enter selection: "
-		read RETVAL
-		if [ "x$RETVAL" = "x1" ] ; then
-			sys
-		elif [ "x$RETVAL" = "x2" ] ; then
-			oa
-		fi
+		echo "Enter APK type:"
+		echo "---------------"
+		list=("System apk" "Regular apk")
+		PS3=$(echo ; echo "Enter selection: ")
+		select mode in $list; do
+			case "x$mode" in
+			"x1" ) sys ; break ;;
+			"x2" ) oa ; break ;;
+				*) echo ; echo "Invalid input." ;;
+			esac
+		done
+		clear ; echo ; echo "File: $fileName.apk zipped."
 	else
-		echo "Error. No active APK file set."
+		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then zip ; fi
 	fi
 }
 
 # 4) Sign APK
 si () {
 	echo 
-	cd tools
 	if [[ -n $fileName ]] ; then
+		cd tools
 		INFILE="../apk-input/$fileName-unsigned.apk"
 		projectsFILE="../apk-input/$fileName-signed.apk"
 		if [ -e "$INFILE" ] ; then
@@ -124,10 +136,10 @@ si () {
 		else
 			echo "Warning: cannot find file '$INFILE'"
 		fi
+		cd ..
 	else
-		echo "Error. No active APK file set."
+		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then si ; fi
 	fi
-	cd ..
 }
 
 # 5) Zipalign
@@ -146,7 +158,7 @@ zipa () {
 			fi
 		done
 	else
-		echo "Error. No active APK file set."
+		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then zipa ; fi
 	fi
 }
 
@@ -167,19 +179,17 @@ ins () {
 
 # 7) Zip / Sign / Install APK
 alli () {
-	echo "1    System  apk "
-	echo "2    Regular apk "
-	printf "%s" "Please make your decision: "
-	read RETVAL
-	if [ "x$RETVAL" = "x1" ] ; then
-		sys
-		ins
-	elif [ "x$RETVAL" = "x2" ] ; then
-		oa
-		zip
-		si
-		ins
-	fi
+	echo "Enter APK type:"
+	echo "---------------"
+	list=("System apk" "Regular apk")
+	PS3=$(echo ; echo "Enter selection: ")
+	select mode in $list; do
+		case "x$mode" in
+			"x1" ) sys ; ins ; break ;;
+			"x2" ) oa ; zip ; si ; ins ; break ;;
+				*) echo ; echo "Invalid input." ;;
+		esac
+	done
 }
 
 # 8)
@@ -202,57 +212,77 @@ apu () {
 
 # 9)
 de () {
-	cd tools
-	rm -f "../apk-input/$fileName-signed.apk"
-	rm -f "../apk-input/$fileName-unsigned.apk"
-	rm -rf "../projects/$fileName.apk"
-	
 	if [[ -n $fileName ]] ; then
+		cd tools
+		rm -f "../apk-input/$fileName-signed.apk"
+		rm -f "../apk-input/$fileName-unsigned.apk"
+		rm -rf "../projects/$fileName.apk"
 		#echo "java -jar apktool.jar d ../apk-input/$fileName.apk ../projects/$fileName.apk"
 		java -jar apktoolD.jar d ../apk-input/$fileName.apk "../projects/$fileName.apk"
+		cd ..
 	else
 		echo 
-		echo "Error. No active APK file set."
+		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then de ; fi
 	fi
-	cd ..
 }
 
 # 10)
 co () {
-	cd tools
+	cochk
 	if [[ -n $fileName ]] ; then
+		cd tools
 		baseAPK=`basename $fileName`
 		#echo "java -jar apktool.jar b ../projects/$fileName.apk ../apk-input/$fileName-unsigned.apk"
 		java -jar apktoolB.jar b "../projects/$fileName.apk" "../apk-input/$fileName-unsigned.apk"
+		cd ..
 	else
-		echo "Error. No active APK file set."
+		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then co ; fi
 	fi
-	cd ..
 	retainorigfiles	
+}
+
+cochk () {
+	echo "Enter APK type:"
+	echo "---------------"
+	list=("System apk" "Regular apk")
+	PS3=$(echo ; echo "Enter selection: ")
+
+	select comptype in $list; do
+		case "x$comptype" in
+			1|2 ) break ;; # valid input.
+			   *) echo ; echo "Invalid input." ;;
+		esac
+	done
 }
 
 retainorigfiles () {
 	echo 
-	printf "Copy unmodified files to APK to reduce errors (Y/n)? "
+	if [[ $comptype == 1 ]]; then
+		echo "Aside from APK signatures, copy unmodified files "
+	else
+		printf "Copy unmodified files "
+	fi
+	printf "to compiled APK to reduce errors (Y/n)? "
 	read INPUT
-	if [[ x$INPUT ==  "xY" || x$INPUT ==  "xy" ]] ; then
+	if [[ x$INPUT ==  "xY" || x$INPUT ==  "xy" || x$INPUT ==  "x" ]] ; then
 		cd tools
 		rm -rf ../keep
 		7za x -o"../keep" ../apk-input/$fileName.apk
+		if [[ $comptype == 2 ]] ; then
+			rm -rf ../keep/META-INF
+		fi
 		echo 
-		echo "Delete all unmodified files in the /keep directory."
+		echo "Delete all modified files in the /keep directory."
 		echo "If you modified an XML file, delete the resources.arsc file."
 		echo "Press Enter key to continue."
 		read DUMMY
-		7za a -tzip "../apk-input/$fileName-unsigned.apk" ../keep/* -mx0 -r
+		7za a -tzip "../apk-input/$fileName-unsigned.apk" ../keep/* -mx"$clvl" -r
 		rm -rf ../keep
-		echo 
-		echo "Done"
 		cd ..
-	else
-		echo 
-		echo "Done"
 	fi
+	clear
+	echo 
+	echo "Done"
 }
 
 # 13)
@@ -280,7 +310,7 @@ bopt () {
 		done
 		# TODO optimize .ogg files
 		# Re-compress
-		7za a -tzip "../apk-optimize/temp.zip" ../apk-optimize/original/* -mx9
+		7za a -tzip "../apk-optimize/temp.zip" ../apk-optimize/original/* -mx"$clvl"
 		FILE=`basename "$APK_FILE"`
 		DIR=`dirname "$APK_FILE"`
 		mv -f "../apk-optimize/temp.zip" "$DIR/optimized-$FILE"
@@ -292,7 +322,6 @@ bopt () {
 
 # 15)
 asi () {
-	
 	echo 
 	cd tools
 	find "../apk-sign" -name *.apk | while read APK_SIGN ;
@@ -322,37 +351,46 @@ ogg () {
 
 # 17)
 selt () {
-	
 	cd apk-input
 	echo 
 	echo "Listing APK files:"
-	echo 
-	PS3="Choose APK: "
+	echo "------------------"
+	PS3=$(echo ""; echo "Choose APK: ")
 	fileList=$(find -type f -name "*.apk")
-
-	select fileName in $fileList; do
-		if [[ -n "$fileName" ]] ; then
-			fileName=`basename $fileName`
-			fileName=${fileName%.*}
-			clear
-			echo 
-	        echo "Selected: $fileName.apk"
-	    fi
-	    if [[ -z "$fileName" ]] ; then
-	    	clear
-	    	echo 
-	        echo "Error. Wrong input."
-	        break
-	    fi
-	    break
-	done
+	# Clean up list.
+	fileList=${fileList//"./"/}
 
 	if [[ -z $fileList ]] ; then
-		clear
+		#clear
 		echo 
-		echo "No APK files found."
+		echo "No APK files found. Please check the apk-input directory."
+	else
+		select fileName in $fileList; do
+			if [[ -n "$fileName" ]] ; then
+				fileName=${fileName%.*}
+				if [[ $1 == "s1" ]]; then clear ; fi
+					echo ; echo "Selected: $fileName.apk" ; break
+			else
+		    	echo ; echo "Error. Wrong input."
+		    fi
+		done
 	fi
+
+
 	cd ..
+}
+
+actvfile () {
+	echo "No active APK file set."
+	printf "Set active APK file? (Y/n): "
+	read INPUT
+	if [[ x$INPUT == "xy" || x$INPUT == "xY" || x$INPUT == "x" ]]; then
+		selt ; echo 
+		return 1
+	else
+		clear ; echo ; echo "Operation aborted."
+		return 0
+	fi
 }
 
 # 18)
@@ -379,7 +417,7 @@ frm () {
 clr () {
 	printf "Do you want to clean your current projects (y/N)? "
 	read INPUT
-	if [ "x$INPUT" = "xy" ] || [ "x$INPUT" = "xY" ] ; then
+	if [[ "x$INPUT" = "xy" || "x$INPUT" = "xY" ]] ; then
 		rm -rf apk-sign
 		rm -rf projects
 		rm -rf apk-optimize
@@ -389,7 +427,7 @@ clr () {
 		echo 
 		printf "Clear apk-input directory (y/N)? "
 		read INPUT
-		if [ "x$INPUT" = "xy" ] || [ "x$INPUT" = "xY" ] ; then
+		if [[ "x$INPUT" = "xy" || "x$INPUT" = "xY" ]] ; then
 			echo "Directory apk-input cleared."
 			rm -rf apk-input
 			mkdir apk-input
@@ -398,7 +436,7 @@ clr () {
 		echo 
 		printf "Delete framework-res.apk import (y/N)? "
 		read INPUT
-		if [ "x$INPUT" = "xy" ] || [ "x$INPUT" = "xY" ] ; then
+		if [[ "x$INPUT" = "xy" || "x$INPUT" = "xY" ]] ; then
 			echo "File framework-res.apk deleted."
 			rm -rf $HOME/apktool
 		fi
@@ -413,7 +451,7 @@ setclv () {
 	read INPUT
 	echo 
 	case "$INPUT" in
-		[0|1|2|3|4|5|6|7|8|9] )
+		0|1|2|3|4|5|6|7|8|9 )
 			clvl=$INPUT
 			echo "Compression level set at: $clvl"
 		;;
@@ -492,7 +530,7 @@ restart () {
 		14)     bopt ;;
 		15)      asi ;;
 		16)      ogg ;;
-		17)     selt ;;
+		17)     selt "s1" ;;
 		18)      frm ;;
 		19)      clr ;;
 		20)   setclv ;;
@@ -503,16 +541,20 @@ restart () {
 	esac
 }
 
-# Start
+# Start ----------------------------------------
+# Terminal Dimensions
 printf '\033[8;43;80t'
 PATH="$PATH:$PWD/tools"
 reset
+
+# Defaults
 fileName=""
 clvl="0"
-# Terminal Dimensions
+
 clear
 export PATH
 #echo $PATH
+
 # Test for needed programs and warn if missing
 ERROR="0"
 for PROGRAM in "optipng" "7za" "java" "sudo" "adb" "aapt" "sox"
