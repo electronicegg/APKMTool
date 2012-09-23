@@ -24,6 +24,10 @@
 # - Prompt user to set an active APK if not set
 # - Make menus consistent
 # - Various code rewrite, fixes and typo corrections
+#
+# 2012-09-23
+# - Add settings.conf for storing preferences. (Auto-created)
+# - Compression level in settings.conf support
 # 
 # ------------------------------------------------
 
@@ -453,6 +457,7 @@ setclv () {
 	case "$INPUT" in
 		0|1|2|3|4|5|6|7|8|9 )
 			clvl=$INPUT
+			sed -i "1s/compressionLevel=.*/compressionLevel=$INPUT/g" "$confFile"
 			echo "Compression level set at: $clvl"
 		;;
 
@@ -543,13 +548,22 @@ restart () {
 
 # Start ----------------------------------------
 # Terminal Dimensions
-printf '\033[8;43;80t'
+printf '\033[8;48;80t'
 PATH="$PATH:$PWD/tools"
 reset
 
 # Defaults
-fileName=""
-clvl="0"
+fileName=""	# Active APK File
+confFile=settings.conf 	# Config File
+
+# Config File Check
+if [[ ! -f ./$confFile ]]; then
+	clvl="0"	# Compression Level - Default value
+	echo "compressionLevel=0" >> settings.conf
+else
+	setprs=$(sed -n "1p" "$confFile")
+	clvl=${setprs##*=}
+fi
 
 clear
 export PATH
