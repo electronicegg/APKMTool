@@ -38,10 +38,6 @@
 # 
 # ------------------------------------------------
 
-# TODO: (Updated: 2012-09-27)
-# - Create instructions in README file.
-# - Update prompts for necessary operations.
-
 # 0) Pull APK
 ap () {
 	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then			# 25 if no device is connected
