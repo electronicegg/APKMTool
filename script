@@ -37,6 +37,7 @@
 # - Menu changes.
 # - Change compression level default value to 3.
 # - Support local import of framework-res.apk. (Must be located in: ./tools/framework-res.apk)
+# - Remove ICS/JB apktool compile/decompile hack.
 # 
 # ------------------------------------------------
 
@@ -237,7 +238,7 @@ de () {
 		rm -f "../apk-input/$fileName-signed.apk"
 		rm -f "../apk-input/$fileName-unsigned.apk"
 		rm -rf "../projects/$fileName.apk"
-		java -jar apktoolD.jar d ../apk-input/$fileName.apk "../projects/$fileName.apk"
+		java -jar apktool.jar d ../apk-input/$fileName.apk "../projects/$fileName.apk"
 		cd ..
 	else
 		echo 
@@ -251,7 +252,7 @@ co () {
 	if [[ -n $fileName ]] ; then
 		cd tools
 		baseAPK=`basename $fileName`
-		java -jar apktoolB.jar b "../projects/$fileName.apk" "../apk-input/$fileName-unsigned.apk"
+		java -jar apktool.jar b "../projects/$fileName.apk" "../apk-input/$fileName-unsigned.apk"
 		cd ..
 	else
 		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then co ; fi
