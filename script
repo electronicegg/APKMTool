@@ -38,6 +38,7 @@
 # - Change compression level default value to 3.
 # - Support local import of framework-res.apk. (Must be located in: ./tools/framework-res.apk)
 # - Remove ICS/JB apktool compile/decompile hack.
+# - Update apktool.jar to version 1.5.0
 # 
 # ------------------------------------------------
 
