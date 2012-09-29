@@ -29,7 +29,18 @@
 # - Add settings.conf for storing preferences. (Auto-created)
 # - Compression level in settings.conf support
 # 
+# 2012-09027
+# - Start ADB daemon on launch
+# 
+# 2012-09029
+# - Bug Fixes.
+# - Menu changes.
+# 
 # ------------------------------------------------
+
+# TODO: (Updated: 2012-09-27)
+# - Create instructions in README file.
+# - Update prompts for necessary operations.
 
 # 0) Pull APK
 ap () {
@@ -49,7 +60,7 @@ ap () {
 			fileName=${APK_FILE%*.apk}
 		fi
 	else
-		echo "Error. No device connected."
+		echo ; echo "Error. No device connected."
 	fi
 }
 
@@ -69,7 +80,7 @@ ex () {
 		7za x -o"../projects/$fileName.apk" ../apk-input/$fileName.apk
 		cd ..
 	else
-		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then echo $retval ; ex ; fi
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then echo $retval ; ex ; fi
 	fi
 }
 
@@ -93,15 +104,15 @@ opt () {
 	fi
 }
 
-sys () {
+pack () {
 	cd tools
-	7za a -tzip "../apk-input/$fileName-unsigned.apk" ../projects/$fileName.apk -mx"$clvl"
+	7za a -tzip "../apk-input/$fileName-unsigned.apk" ../projects/$fileName.apk/* -mx"$clvl"
 	cd ..
 }
 
 oa () {
 	rm -rf "projects/$fileName.apk/META-INF"
-	sys
+	pack
 }
 
 # 3) Zip APK
@@ -109,18 +120,18 @@ zip () {
 	if [[ -n $fileName ]] ; then
 		echo "Enter APK type:"
 		echo "---------------"
-		list=("System apk" "Regular apk")
+		list="System-APK Regular-APK"
 		PS3=$(echo ; echo "Enter selection: ")
 		select mode in $list; do
-			case "x$mode" in
-			"x1" ) sys ; break ;;
-			"x2" ) oa ; break ;;
+			case "$mode" in
+			"System-APK"  ) pack ; break ;;
+			"Regular-APK" ) oa ; break ;;
 				*) echo ; echo "Invalid input." ;;
 			esac
 		done
 		clear ; echo ; echo "File: $fileName.apk zipped."
 	else
-		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then zip ; fi
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then zip ; fi
 	fi
 }
 
@@ -137,12 +148,13 @@ si () {
 			if [ "x$?" = "x0" ] ; then
 				rm -f "$INFILE"
 			fi
+			echo "Done."
 		else
 			echo "Warning: cannot find file '$INFILE'"
 		fi
 		cd ..
 	else
-		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then si ; fi
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then si ; fi
 	fi
 }
 
@@ -150,24 +162,26 @@ si () {
 zipa () {
 	echo 
 	if [[ -n $fileName ]] ; then
-		for STRING in "signed" "unsigned"
+		for STRING in "unsigned" "signed"
 		do
-			if [ -e "apk-input/$fileName-$STRING.apk" ] ; then
+			if [ -f "apk-input/$fileName-$STRING.apk" ] ; then
 				zipalign -fv 4 "apk-input/$fileName-$STRING.apk" "apk-input/$fileName-$STRING-aligned.apk"
 				if [ "x$?" = "x0" ] ; then
 					mv -f "apk-input/$fileName-$STRING-aligned.apk" "apk-input/$fileName-$STRING.apk"
 				fi
 			else
-				echo "zipalign: Cannot find file 'apk-input/$fileName-$STRING.apk'"
+				echo "Zipalign: Cannot find file 'apk-input/$fileName-$STRING.apk'"
 			fi
 		done
+		clear ; echo ; echo "Done."
 	else
-		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then zipa ; fi
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then zipa ; fi
 	fi
 }
 
 # 6) Install APK
 ins () {
+	clear
 	echo 
 	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
 		echo "Install APK: $fileName.apk (y/N)?"
@@ -183,17 +197,21 @@ ins () {
 
 # 7) Zip / Sign / Install APK
 alli () {
-	echo "Enter APK type:"
-	echo "---------------"
-	list=("System apk" "Regular apk")
-	PS3=$(echo ; echo "Enter selection: ")
-	select mode in $list; do
-		case "x$mode" in
-			"x1" ) sys ; ins ; break ;;
-			"x2" ) oa ; zip ; si ; ins ; break ;;
-				*) echo ; echo "Invalid input." ;;
-		esac
-	done
+	if [[ -n $fileName ]] && [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+		echo "Enter APK type:"
+		echo "---------------"
+		list="System-APK Regular-APK"
+		PS3=$(echo ; echo "Enter selection: ")
+		select mode in $list; do
+			case "$mode" in
+				"System-APK"  ) pack ; ins ; break ;;
+				"Regular-APK" ) oa ; pack ; si ; ins ; break ;;
+					*) echo ; echo "Invalid input." ;;
+			esac
+		done
+	else
+		echo ; echo "Error. Check active APK file and make sure device is connected."
+	fi
 }
 
 # 8)
@@ -226,7 +244,7 @@ de () {
 		cd ..
 	else
 		echo 
-		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then de ; fi
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then de ; fi
 	fi
 }
 
@@ -240,7 +258,7 @@ co () {
 		java -jar apktoolB.jar b "../projects/$fileName.apk" "../apk-input/$fileName-unsigned.apk"
 		cd ..
 	else
-		actvfile ; retval=$? ; if [[ $retval == 1 ]]; then co ; fi
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then co ; fi
 	fi
 	retainorigfiles	
 }
@@ -248,12 +266,12 @@ co () {
 cochk () {
 	echo "Enter APK type:"
 	echo "---------------"
-	list=("System apk" "Regular apk")
+	list="System-APK Regular-APK"
 	PS3=$(echo ; echo "Enter selection: ")
 
 	select comptype in $list; do
-		case "x$comptype" in
-			1|2 ) break ;; # valid input.
+		case "$comptype" in
+			"System-APK"|"Regular-APK" ) break ;; # valid input.
 			   *) echo ; echo "Invalid input." ;;
 		esac
 	done
@@ -289,14 +307,14 @@ retainorigfiles () {
 	echo "Done"
 }
 
-# 13)
+# 11)
 all () {
 	co
 	si
 	ins
 }
 
-# 14)
+# 12)
 bopt () {
 	cd tools
 	mkdir -p "../apk-optimize/original"
@@ -324,7 +342,7 @@ bopt () {
 	cd ..
 }
 
-# 15)
+# 13)
 asi () {
 	echo 
 	cd tools
@@ -336,9 +354,10 @@ asi () {
 	cd ..
 }
 
-# 16)
+# 14)
 ogg () {
 	cd tools
+	mkdir -p "../ogg-optimize"
 	find "../ogg-optimize/" -name *.ogg | while read OGG_FILE ;
 	do
 		FILE=`basename "$OGG_FILE"`
@@ -353,7 +372,7 @@ ogg () {
 	done
 }
 
-# 17)
+# 15)
 selt () {
 	cd apk-input
 	echo 
@@ -365,17 +384,19 @@ selt () {
 	fileList=${fileList//"./"/}
 
 	if [[ -z $fileList ]] ; then
-		#clear
-		echo 
-		echo "No APK files found. Please check the apk-input directory."
+		clear
+		echo ; echo "No APK files found. Please check the apk-input directory."
+		return 1
 	else
 		select fileName in $fileList; do
 			if [[ -n "$fileName" ]] ; then
 				fileName=${fileName%.*}
 				if [[ $1 == "s1" ]]; then clear ; fi
 					echo ; echo "Selected: $fileName.apk" ; break
+					return 0
 			else
 		    	echo ; echo "Error. Wrong input."
+		    	return 1
 		    fi
 		done
 	fi
@@ -389,15 +410,19 @@ actvfile () {
 	printf "Set active APK file? (Y/n): "
 	read INPUT
 	if [[ x$INPUT == "xy" || x$INPUT == "xY" || x$INPUT == "x" ]]; then
-		selt ; echo 
-		return 1
+		selt ; retval=$? ; if [[ $retval == 1 ]]; then
+			echo "Operation aborted."
+			return 1
+		else
+			return 0
+		fi
 	else
 		clear ; echo ; echo "Operation aborted."
-		return 0
+		return 1
 	fi
 }
 
-# 18)
+# 16)
 frm () {
 	rm -rf $HOME/apktool
 	cd tools
@@ -417,7 +442,7 @@ frm () {
 	cd ..
 }
 
-# 19)
+# 17)
 clr () {
 	printf "Do you want to clean your current projects (y/N)? "
 	read INPUT
@@ -449,6 +474,7 @@ clr () {
 	fi
 }
 
+# 20)
 setclv () {
 	echo "Current compression level: $clvl"
 	printf "Enter new compression level (Value 0-9): "
@@ -466,8 +492,8 @@ setclv () {
 	esac
 }
 
+# 00)
 quit () {
-	
 	exit 0
 }
 
@@ -476,36 +502,28 @@ restart () {
 	echo "############################### Apk Multi-Tool ################################"
 	echo 
 	echo "- Simple Tasks (Image editing, etc.) ------------------------------------------"
-	echo "  0    Adb pull"
-	echo "  1    Extract apk"
-	echo "  2    Optimize images inside (Only if \"Extract Apk\" was selected)"
-	echo "  3    Zip apk"
-	echo "  4    Sign apk (Dont do this if its a system apk)"
-	echo "  5    Zipalign apk (Do once apk is created/signed)"
-	echo "  6    Install apk (Dont do this if system apk, do adb push)"
-	echo "  7    Zip / Sign / Install apk (All in one step)"
-	echo "  8    Adb push (Only for system apk)"
+	echo "  0    ADB Pull                          8    ADB Push                         "
+	echo "  1    Extract APK                       2    Optimize APK Images              "
+	echo "  3    Zip APK                           4    Sign APK                         "
+	echo "  5    Zipalign APK                      6    Install APK                      "
+	echo "  7    One-step Zip-Sign-Install"
 	echo 
 	echo "- Advanced Tasks (XML, Smali, etc.) -------------------------------------------"
-	echo "  9    Decompile apk"
-	echo "  10   Compile apk"
-	echo "  11   Sign apk"
-	echo "  12   Install apk"
-	echo "  13   Compile apk / Sign apk / Install apk (All in one step)"
+	echo "  9    Decompile APK                     10   Compile APK                      "
+	echo "  11   One-step Compile-Sign-Install"
 	echo 
 	echo "- Batch Operations ------------------------------------------------------------"
-	echo "  14   Batch Optimize Apk        (inside apk-optimize folder only)"
-	echo "  15   Batch Sign apk            (inside apk-sign folder only)"
-	echo "  16   Batch optimize ogg files  (inside ogg-optimize folder only)"
+	echo "  12   Batch Optimize APK                13 Batch Sign APK                     "
+	echo "  14   Batch optimize ogg files"
 	echo 
 	echo "-------------------------------------------------------------------------------"
-	echo "  17   Set active project"
-	echo "  18   Import framework-res.apk  (Perform apktool.jar if framework-res.apk)"
-	echo "  19   Clear project files"
-	echo "  20   Set compression level     (Current compression level: $clvl)"
+	echo "  15   Set Active APK"
+	echo "  16   Import framework-res.apk  (Perform apktool.jar if framework-res.apk)"
+	echo "  17   Clear Project Files"
+	echo "  20   Set Compression Level     (Current compression level: $clvl)"
 	echo "  00   Quit"
 	echo "-------------------------------------------------------------------------------"
-	printf "  Active File: "
+	printf "  Active APK File: "
 	if [[ -n $fileName ]] ; then
 		printf "$fileName.apk"
 	else
@@ -529,15 +547,13 @@ restart () {
 		 8)      apu ;;
 		 9)       de ;;
 		10)       co ;;
-		11)       si ;;
-		12)      ins ;;
-		13)      all ;;
-		14)     bopt ;;
-		15)      asi ;;
-		16)      ogg ;;
-		17)     selt "s1" ;;
-		18)      frm ;;
-		19)      clr ;;
+		11)      all ;;
+		12)     bopt ;;
+		13)      asi ;;
+		14)      ogg ;;
+		15)     selt "s1" ;; # Set via menu
+		16)      frm ;;
+		17)      clr ;;
 		20)   setclv ;;
 		"00")   quit ;;
 		 *)
@@ -583,6 +599,8 @@ done
 if [ "x$ERROR" = "x1" ] ; then
 	exit 1
 fi
+
+adbd=$(adb start-server)	# Start ADB Daemon
 
 clear
 while [ "1" = "1" ] ;
