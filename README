@@ -18,28 +18,7 @@ FEATURES
 - (To be accomplished)
 
 CHANGELOG
-2012-09-17
-- Added support for file selection
-- Support for batch APK signing
-
-2012-09-18
-- Added adb pull framework-res.apk
-- Device check before ADB operations
-- Set pulled APK as active APK
-- Backup remote APK before ADB push
-- Chmod 644 after ADB push (system APK)
-- Compression level menu (default: 0)
-
-2012-09-20
-- Ask if APK to compile is system or regular APK
-- Fix zip compression level implementation
-- Prompt user to set an active APK if not set
-- Make menus consistent
-- Various code rewrite, fixes and typo corrections
-
-2012-09-23
-- Add settings.conf for storing preferences. (Auto-created)
-- Compression level in settings.conf support
+- (See script file)
 
 REQUIREMENTS
 - Java 1.6
