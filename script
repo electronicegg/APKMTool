@@ -35,6 +35,8 @@
 # 2012-09029
 # - Bug Fixes.
 # - Menu changes.
+# - Change compression level default value to 3.
+# - Support local import of framework-res.apk. (Must be located in: ./tools/framework-res.apk)
 # 
 # ------------------------------------------------
 
@@ -235,7 +237,6 @@ de () {
 		rm -f "../apk-input/$fileName-signed.apk"
 		rm -f "../apk-input/$fileName-unsigned.apk"
 		rm -rf "../projects/$fileName.apk"
-		#echo "java -jar apktool.jar d ../apk-input/$fileName.apk ../projects/$fileName.apk"
 		java -jar apktoolD.jar d ../apk-input/$fileName.apk "../projects/$fileName.apk"
 		cd ..
 	else
@@ -250,7 +251,6 @@ co () {
 	if [[ -n $fileName ]] ; then
 		cd tools
 		baseAPK=`basename $fileName`
-		#echo "java -jar apktool.jar b ../projects/$fileName.apk ../apk-input/$fileName-unsigned.apk"
 		java -jar apktoolB.jar b "../projects/$fileName.apk" "../apk-input/$fileName-unsigned.apk"
 		cd ..
 	else
@@ -420,6 +420,7 @@ actvfile () {
 
 # 16)
 frm () {
+	echo 
 	rm -rf $HOME/apktool
 	cd tools
 	printf "Pull framework-res.apk from an ADB device (Y/n)? "
@@ -429,10 +430,25 @@ frm () {
 			echo 
 			echo "Pulling framework-res.apk from device."
 			adb pull /system/framework/framework-res.apk ./framework-res.apk
-			#adb pull /system/framework/framework-res.apk $HOME/apktool/framework/1.apk
-			java -jar apktool.jar "if" ./framework-res.apk
 		else
 			echo "Error. No device connected."
+		fi
+	else
+		localMode="true"
+	fi
+
+	if [[ -f ./framework-res.apk ]]; then
+		if [[ $localMode == "true" ]]; then
+			echo "Local framework-res.apk found."
+		fi
+		echo 
+		echo $(java -jar apktool.jar "if" ./framework-res.apk) | grep "Framework installed"
+		clear
+		echo
+		if [ $? -eq 0 ] ; then
+			echo "Done importing framework-res.apk"
+		else
+			echo "Error. Import failed."
 		fi
 	fi
 	cd ..
@@ -512,7 +528,7 @@ restart () {
 	echo "  5    Zipalign APK                                                            "
 	echo 
 	echo "- Batch Operations ------------------------------------------------------------"
-	echo "  12   Batch Optimize APK                13 Batch Sign APK                     "
+	echo "  12   Batch Optimize APK                13   Batch Sign APK                   "
 	echo "  14   Batch Optimize ogg files"
 	echo 
 	echo "-------------------------------------------------------------------------------"
@@ -573,8 +589,8 @@ confFile=settings.conf 	# Config File
 
 # Config File Check
 if [[ ! -f ./$confFile ]]; then
-	clvl="0"	# Compression Level - Default value
-	echo "compressionLevel=0" >> settings.conf
+	clvl="3"	# Compression Level - Default value
+	echo "compressionLevel=3" >> settings.conf
 else
 	setprs=$(sed -n "1p" "$confFile")
 	clvl=${setprs##*=}
