@@ -599,6 +599,11 @@ if [ "x$ERROR" = "x1" ] ; then
 	exit 1
 fi
 
+# Create directory is missing
+if [[ ! -d ./apk-input ]]; then
+	mkdir -p ./apk-input
+fi
+
 adbd=$(adb start-server)	# Start ADB Daemon
 
 clear
