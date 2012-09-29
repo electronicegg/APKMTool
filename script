@@ -498,19 +498,22 @@ restart () {
 	echo "############################### Apk Multi-Tool ################################"
 	echo 
 	echo "- Simple Tasks (Image editing, etc.) ------------------------------------------"
-	echo "  0    ADB Pull                          8    ADB Push                         "
 	echo "  1    Extract APK                       2    Optimize APK Images              "
-	echo "  3    Zip APK                           4    Sign APK                         "
-	echo "  5    Zipalign APK                      6    Install APK                      "
+	echo "  3    Zip APK                                                                 "
 	echo "  7    One-step Zip-Sign-Install"
 	echo 
 	echo "- Advanced Tasks (XML, Smali, etc.) -------------------------------------------"
 	echo "  9    Decompile APK                     10   Compile APK                      "
 	echo "  11   One-step Compile-Sign-Install"
 	echo 
+	echo "- Common Tasks ----------------------------------------------------------------"
+	echo "  0    ADB Pull                          8    ADB Push                         "
+	echo "  4    Sign APK                          6    Install APK                      "
+	echo "  5    Zipalign APK                                                            "
+	echo 
 	echo "- Batch Operations ------------------------------------------------------------"
 	echo "  12   Batch Optimize APK                13 Batch Sign APK                     "
-	echo "  14   Batch optimize ogg files"
+	echo "  14   Batch Optimize ogg files"
 	echo 
 	echo "-------------------------------------------------------------------------------"
 	echo "  15   Set Active APK"
