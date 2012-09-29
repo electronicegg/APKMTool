@@ -599,7 +599,7 @@ if [ "x$ERROR" = "x1" ] ; then
 	exit 1
 fi
 
-# Create directory is missing
+# Create apk-input directory if missing
 if [[ ! -d ./apk-input ]]; then
 	mkdir -p ./apk-input
 fi
