@@ -40,6 +40,15 @@
 # - Remove ICS/JB apktool compile/decompile hack.
 # - Update apktool.jar to version 1.5.0
 # 
+# 2012-10-02
+# - Allow batch rename APKs to proper names.
+# - Allow batch install APKs from apk-backup to device
+# - Rearrange menu numbering
+# 
+# 2012-10-03
+# - Support update.zip creation.
+# - Support update.zip selection from /projects directory and push to device.
+# 
 # ------------------------------------------------
 
 # 0) Pull APK
@@ -511,6 +520,138 @@ quit () {
 	exit 0
 }
 
+apren () {
+	echo 
+	mkdir -p "apk-rename"
+	if [[ ! -z $1 ]]; then
+		apkclean $1
+	fi
+	clear ; echo ; echo "Done."
+}
+
+apkclean () {
+	cd tools
+	echo Renaming APKs...
+	if [[ ! -z $1 ]]; then
+		dir=$1
+		find $dir -type f -name "*.apk" | while read APK_FILE ;
+		do
+			labl=$(aapt d badging "$APK_FILE" | grep "application: label=" | cut -d "'" -f2)
+			vers=$(aapt d badging "$APK_FILE" | grep "versionName=" | cut -d "'" -f6)
+			if [[ "$APK_FILE" != "${dir}${labl} $vers.apk" ]]; then
+				mv -nf "$APK_FILE" "$dir$labl $vers.apk"
+				echo "Renamed `basename "$APK_FILE"` to $labl $vers.apk"
+			fi
+		done
+	fi
+	cd ..
+}
+
+devback () {
+	mkdir -p "apk-backup"
+	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+		echo
+		echo "Pulling all APKs from device /data/app/..."
+		echo "(WARNING: This operation can take a long time depending"
+		echo "          on the number of installed APKs)" ; echo 
+
+		adb pull "/data/app/" "./apk-backup/"
+		echo 
+		apkclean "../apk-backup/"
+	else
+		echo ; echo "Error. No device connected."
+	fi
+
+	clear ; echo ; echo "Done."
+}
+
+devres () {
+	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+		echo
+		echo "Installing all APKs in ./apk-backup/ to device..."
+		echo "(WARNING: This operation can take a long time depending"
+		echo "          on the number of APKs)" ; echo 
+
+		find "./apk-backup/" -type f -name "*.apk" | while read APK_FILE ;
+		do
+			adb install -r "$APK_FILE"
+		done
+	else
+		echo ; echo "Error. No device connected."
+	fi
+
+	clear ; echo ; echo "Done."
+}
+
+mkzip () {
+	if [[ -f "./tools/template.zip" ]]; then
+		if [[ -d "./zip-temp" ]]; then
+			echo ;  printf "Clean zip-temp directory? (y/N): "
+			read PRMPT
+			case $PRMPT in
+				Y|y ) rm -rf "./zip-temp" ; mkdir -p "zip-temp"
+					  hidden=$(7za x -o"./zip-temp" "./tools/template.zip")
+					;;
+			esac
+		else
+			mkdir -p "zip-temp"
+			hidden=$(7za x -o"./zip-temp" "./tools/template.zip")
+		fi
+		echo 
+		echo "Modify contents of the zip-temp directory to match update.zip contents."
+		echo "Edit /zip-temp/META-INF/com/google/android/updater-script to your requirements."
+		echo 
+		printf "Press ENTER to begin update.zip creation..."
+		read DUMMY
+		echo ; printf "Enter custom update.zip name (Default: update.zip): "
+		read zipName
+		case $zipName in
+			"" | " " | "." | "/" | "\\" | "|" ) zipName="update" ;;
+		esac
+		echo ; echo "Compressing update.zip..."
+		7za a -tzip "./projects/$zipName.zip" ./zip-temp/* -mx"$clvl" -r-
+		echo ; echo "Signing $zipName.zip..."
+		java -jar "./tools/signapk.jar" -w "./tools/testkey.x509.pem" "./tools/testkey.pk8" "./projects/$zipName.zip" "./projects/$zipName-signed.zip"
+		rm -f "./projects/$zipName.zip"
+		clear ; echo ; printf "Done."
+		if [[ -f "./projects/$zipName-signed.zip" ]]; then
+			printf " Created: /projects/$zipName-signed.zip\n"
+		fi
+	fi
+}
+
+pushzip () {
+	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then			# 25 if no device is connected
+		cd "./projects"
+		echo 
+		echo "Listing ZIP files:"
+		echo "------------------"
+		PS3=$(echo ""; echo "Choose ZIP: ")
+		fileList=$(find -type f -name "*.zip")
+		# Clean up list.
+		fileList=${fileList//"./"/}
+
+		if [[ -z $fileList ]] ; then
+			clear
+			echo ; echo "No ZIP files found. Please check the projects directory."
+		else
+			select zipName in $fileList; do
+				if [[ -n "$zipName" ]] ; then
+					zipName=${zipName%.*}
+					echo ; echo "Pushing $zipName.zip to device /sdcard/"
+					adb push "./$zipName.zip" "/sdcard/"
+					clear ; echo ; echo "Done." ; break
+				else
+			    	echo ; echo "Error. Wrong input."
+			    fi
+			done
+		fi
+		cd ..
+	else
+		echo ; echo "Error. No device connected."
+	fi
+}
+
 restart () {
 	echo 
 	echo "############################### Apk Multi-Tool ################################"
@@ -531,13 +672,20 @@ restart () {
 	echo 
 	echo "- Batch Operations ------------------------------------------------------------"
 	echo "  12   Batch Optimize APK                13   Batch Sign APK                   "
-	echo "  14   Batch Optimize ogg files"
+	echo "  14   Batch Optimize OGG files"
+	echo 
+	echo "- Distribution & Update.zip Creation ------------------------------------------"
+	echo "  41   Create Update.zip                 42   Push Update.zip to device        "
+	echo 
+	echo "- ADB Device & APK Management -------------------------------------------------"
+	echo "  30   Backup Device Installed APKs      31   Batch Rename APK                 "
+	echo "  32   Batch Install APK (apk-backup)"
 	echo 
 	echo "-------------------------------------------------------------------------------"
-	echo "  15   Set Active APK"
-	echo "  16   Import framework-res.apk  (Perform apktool.jar if framework-res.apk)"
-	echo "  17   Clear Project Files"
-	echo "  20   Set Compression Level     (Current compression level: $clvl)"
+	echo "  20   Set Active APK"
+	echo "  21   Import framework-res.apk  (Perform apktool.jar if framework-res.apk)"
+	echo "  22   Clear Project Files"
+	echo "  23   Set Compression Level     (Current compression level: $clvl)"
 	echo "  00   Quit"
 	echo "-------------------------------------------------------------------------------"
 	printf "  Active APK File: "
@@ -568,10 +716,15 @@ restart () {
 		12)     bopt ;;
 		13)      asi ;;
 		14)      ogg ;;
-		15)     selt "s1" ;; # Set via menu
-		16)      frm ;;
-		17)      clr ;;
-		20)   setclv ;;
+		20)     selt "s1" ;; # Set via menu
+		21)      frm ;;
+		22)      clr ;;
+		23)   setclv ;;
+		30)  devback ;;
+		31)   apren "../apk-rename/" ;;
+		32)   devres ;;
+		41)    mkzip ;;
+		42)  pushzip ;;
 		"00")   quit ;;
 		 *)
 			echo "Unknown command: '$ANSWER'"
