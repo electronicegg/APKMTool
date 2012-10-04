@@ -1,15 +1,22 @@
 # Configguration Files #
 ###################
 *.conf
+*.cfg
 
 # Project Testing & Backups #
 ######################
+projects
+.test
+.update
+*.beta
 *.apk
 *.bak
 *.todo
 
 # OS generated files #
 ######################
+nohup.out
+*.swp
 .DS_Store
 .DS_Store?
 ._*
