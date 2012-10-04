@@ -133,12 +133,11 @@ zip () {
 	if [[ -n $fileName ]] ; then
 		echo "Enter APK type:"
 		echo "---------------"
-		list="System-APK Regular-APK"
 		PS3=$(echo ; echo "Enter selection: ")
-		select mode in $list; do
+		select mode in "System APK" "Regular APK" ; do
 			case "$mode" in
-			"System-APK"  ) pack ; break ;;
-			"Regular-APK" ) oa ; break ;;
+			"System APK"  ) pack ; break ;;
+			"Regular APK" ) oa ; break ;;
 				*) echo ; echo "Invalid input." ;;
 			esac
 		done
@@ -213,12 +212,11 @@ alli () {
 	if [[ -n $fileName ]] && [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
 		echo "Enter APK type:"
 		echo "---------------"
-		list="System-APK Regular-APK"
 		PS3=$(echo ; echo "Enter selection: ")
-		select mode in $list; do
+		select mode in "System APK" "Regular APK" ; do
 			case "$mode" in
-				"System-APK"  ) pack ; ins ; break ;;
-				"Regular-APK" ) oa ; pack ; si ; ins ; break ;;
+				"System APK"  ) pack ; ins ; break ;;
+				"Regular APK" ) oa ; pack ; si ; ins ; break ;;
 					*) echo ; echo "Invalid input." ;;
 			esac
 		done
@@ -277,12 +275,11 @@ co () {
 cochk () {
 	echo "Enter APK type:"
 	echo "---------------"
-	list="System-APK Regular-APK"
 	PS3=$(echo ; echo "Enter selection: ")
 
-	select comptype in $list; do
+	select comptype in "System APK" "Regular APK" ; do
 		case "$comptype" in
-			"System-APK"|"Regular-APK" ) break ;; # valid input.
+			"System APK"|"Regular APK" ) break ;; # valid input.
 			   *) echo ; echo "Invalid input." ;;
 		esac
 	done
@@ -786,6 +783,7 @@ PATH="$PATH:$PWD/tools"
 reset
 
 # Defaults
+IFS=$(echo -en "\n\b") # Support for filenames with white spaces.
 fileName=""	# Active APK File
 confFile=settings.conf 	# Config File
 
