@@ -48,6 +48,10 @@
 # 2012-10-03
 # - Support update.zip creation.
 # - Support update.zip selection from /projects directory and push to device.
+
+# 2012-10-04
+# - Add dex2jar. Extract classes.dex from active APK and execute dex2jar/
+# - View .jar files via Java Decompiler GUI
 # 
 # ------------------------------------------------
 
@@ -89,7 +93,7 @@ ex () {
 		7za x -o"../projects/$fileName.apk" ../apk-input/$fileName.apk
 		cd ..
 	else
-		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then echo $retval ; ex ; fi
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then ex ; fi
 	fi
 }
 
@@ -652,6 +656,44 @@ pushzip () {
 	fi
 }
 
+cls2jar () {
+	echo 
+	# Check if an active APK is set.
+	if [[ -n $fileName ]] ; then
+
+		cd tools
+		7za e "../apk-input/$fileName.apk" -ir\!"classes.dex" -o"../projects/" -y
+		mv "../projects/classes.dex" "../projects/$fileName.dex"
+		cd ..
+
+		cd projects
+		../tools/dex2jar/dex2jar "$fileName.dex"
+		mv "$fileName-dex2jar.jar" "$fileName.jar"
+		cd ..
+
+		clear ; echo ; echo "Created /projects/$fileName.jar"
+	else
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then cls2jar ; fi
+	fi
+}
+
+viewjar () {
+	echo 
+	# Check if an active APK is set.
+	if [[ -n $fileName ]] ; then
+		if [[ -f "./projects/$fileName.jar" ]]; then
+			# Execute jd-gui as a parallel process
+			gnome-terminal -x ./tools/jd-view $fileName
+
+			clear ; echo ; echo "Viewing file: $fileName.jar"
+		else
+			echo "File: /projects/$fileName.jar does not exist. Please extract from APK."
+		fi
+	else
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then viewjar ; fi
+	fi
+}
+
 restart () {
 	echo 
 	echo "############################### Apk Multi-Tool ################################"
@@ -676,6 +718,9 @@ restart () {
 	echo 
 	echo "- Distribution & Update.zip Creation ------------------------------------------"
 	echo "  41   Create Update.zip                 42   Push Update.zip to device        "
+	echo 
+	echo "- Decompile Classes.dex & View Decompiled Code --------------------------------"
+	echo "  51   Decompile Classes.dex             52   View Decompiled Code             "
 	echo 
 	echo "- ADB Device & APK Management -------------------------------------------------"
 	echo "  30   Backup Device Installed APKs      31   Batch Rename APK                 "
@@ -725,6 +770,8 @@ restart () {
 		32)   devres ;;
 		41)    mkzip ;;
 		42)  pushzip ;;
+		51)  cls2jar ;;
+		52)  viewjar ;;
 		"00")   quit ;;
 		 *)
 			echo "Unknown command: '$ANSWER'"
