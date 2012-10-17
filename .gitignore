@@ -6,6 +6,7 @@
 # Project Testing & Backups #
 ######################
 projects
+zip-temp
 .test
 .update
 *.beta
