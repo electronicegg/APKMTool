@@ -665,12 +665,15 @@ cls2jar () {
 
 		cd tools
 		7za e "../apk-input/$fileName.apk" -ir\!"classes.dex" -o"../projects/" -y
-		mv "../projects/classes.dex" "../projects/$fileName.dex"
+		safeName=${fileName//" "/"-"}
+		mv "../projects/classes.dex" "../projects/$safeName.dex"
 		cd ..
-
 		cd projects
-		../tools/dex2jar/dex2jar "$fileName.dex"
-		mv "$fileName-dex2jar.jar" "$fileName.jar"
+		../tools/dex2jar/dex2jar "$safeName.dex"
+		if [[ $safeName != $fileName ]]; then
+			mv -uf "$safeName.dex" "$fileName.dex"
+		fi
+		mv -uf "$safeName-dex2jar.jar" "$fileName.jar"
 		cd ..
 
 		clear ; echo ; echo "Created /projects/$fileName.jar"
