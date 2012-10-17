@@ -601,13 +601,18 @@ mkzip () {
 		echo 
 		echo "Modify contents of the zip-temp directory to match update.zip contents."
 		echo "Edit /zip-temp/META-INF/com/google/android/updater-script to your requirements."
-		echo 
-		printf "Press ENTER to begin update.zip creation..."
-		read DUMMY
 		echo ; printf "Enter custom update.zip name (Default: update.zip): "
 		read zipName
+		echo ; printf "Append zip creation timestamp? (Y/n): "
+		read zipTime
+		echo ; printf "Press ENTER to begin update.zip creation..."
+		read DUMMY
 		case $zipName in
 			"" | " " | "." | "/" | "\\" | "|" ) zipName="update" ;;
+		esac
+		case $zipTime in
+			"n" | "N" ) zipName="$zipName" ;;
+			* ) zipName="${zipName}-$(date +%Y%m%d-%H%M)" ;;
 		esac
 		echo ; echo "Compressing update.zip..."
 		7za a -tzip "./projects/$zipName.zip" ./zip-temp/* -mx"$clvl" -r-
@@ -777,11 +782,13 @@ restart () {
 }
 
 # Start ----------------------------------------
+echo "Starting APKMtool..."
 # Terminal Dimensions
 printf '\033[8;48;80t'
 PATH="$PATH:$PWD/tools"
 reset
 
+echo -n "Loading defaults & preferences... "
 # Defaults
 IFS=$(echo -en "\n\b") # Support for filenames with white spaces.
 fileName=""	# Active APK File
@@ -795,11 +802,11 @@ else
 	setprs=$(sed -n "1p" "$confFile")
 	clvl=${setprs##*=}
 fi
-
-clear
+echo "Done."
+# clear
 export PATH
 #echo $PATH
-
+echo -n "Checking required binaries & files... "
 # Test for needed programs and warn if missing
 ERROR="0"
 for PROGRAM in "optipng" "7za" "java" "sudo" "adb" "aapt" "sox"
@@ -814,15 +821,18 @@ done
 if [ "x$ERROR" = "x1" ] ; then
 	exit 1
 fi
-
+echo "Done."
 # Create apk-input directory if missing
 if [[ ! -d ./apk-input ]]; then
 	mkdir -p ./apk-input
 fi
 
-adbd=$(adb start-server)	# Start ADB Daemon
+echo -n "Initializing ADBD... "
+# adbd=$(adb start-server)	# Start ADB Daemon
+echo "Done."
 
-clear
+# clear
+reset
 while [ "1" = "1" ] ;
 do
 	restart
