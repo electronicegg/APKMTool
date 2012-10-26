@@ -538,8 +538,10 @@ apkclean () {
 		find $dir -type f -name "*.apk" | while read APK_FILE ;
 		do
 			labl=$(aapt d badging "$APK_FILE" | grep "application: label=" | cut -d "'" -f2)
-			vers=$(aapt d badging "$APK_FILE" | grep "versionName=" | cut -d "'" -f6)
-			if [[ "$APK_FILE" != "${dir}${labl} $vers.apk" ]]; then
+			if [[ ! -z $labl ]]; then
+				vers=$(aapt d badging "$APK_FILE" | grep "versionName=" | cut -d "'" -f6)
+			fi
+			if [[ "$APK_FILE" != "${dir}${labl} $vers.apk" && -n $labl ]] ; then
 				mv -nf "$APK_FILE" "$dir$labl $vers.apk"
 				echo "Renamed `basename "$APK_FILE"` to $labl $vers.apk"
 			fi
