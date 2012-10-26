@@ -540,6 +540,8 @@ apkclean () {
 			labl=$(aapt d badging "$APK_FILE" | grep "application: label=" | cut -d "'" -f2)
 			if [[ ! -z $labl ]]; then
 				vers=$(aapt d badging "$APK_FILE" | grep "versionName=" | cut -d "'" -f6)
+			else
+				echo "ERROR: (File) ${APK_FILE//"../apk-rename/"/}"
 			fi
 			if [[ "$APK_FILE" != "${dir}${labl} $vers.apk" && -n $labl ]] ; then
 				mv -nf "$APK_FILE" "$dir$labl $vers.apk"
