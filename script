@@ -3,61 +3,11 @@
 # ------------------------------------------------
 # Modified Apk Multi-Tools
 # by mikko3024
-# 
-# Changelog:
-# 
-# 2012-09-17
-# - Added support for file selection
-# - Support for batch APK signing
-# 
-# 2012-09-18
-# - Added adb pull framework-res.apk
-# - Device check before ADB operations
-# - Set pulled APK as active APK
-# - Backup remote APK before ADB push
-# - Chmod 644 after ADB push (system APK)
-# - Compression level menu (default: 0)
-# 
-# 2012-09-20
-# - Ask if APK to compile is system or regular APK
-# - Fix zip compression level implementation
-# - Prompt user to set an active APK if not set
-# - Make menus consistent
-# - Various code rewrite, fixes and typo corrections
-#
-# 2012-09-23
-# - Add settings.conf for storing preferences. (Auto-created)
-# - Compression level in settings.conf support
-# 
-# 2012-09027
-# - Start ADB daemon on launch
-# 
-# 2012-09029
-# - Bug Fixes.
-# - Menu changes.
-# - Change compression level default value to 3.
-# - Support local import of framework-res.apk. (Must be located in: ./tools/framework-res.apk)
-# - Remove ICS/JB apktool compile/decompile hack.
-# - Update apktool.jar to version 1.5.0
-# 
-# 2012-10-02
-# - Allow batch rename APKs to proper names.
-# - Allow batch install APKs from apk-backup to device
-# - Rearrange menu numbering
-# 
-# 2012-10-03
-# - Support update.zip creation.
-# - Support update.zip selection from /projects directory and push to device.
-
-# 2012-10-04
-# - Add dex2jar. Extract classes.dex from active APK and execute dex2jar/
-# - View .jar files via Java Decompiler GUI
-# 
 # ------------------------------------------------
 
 # 0) Pull APK
 ap () {
-	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then			# 25 if no device is connected
+	if [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 		echo "Enter APK remote file location:" 
 		echo "i.e. /system/app/launcher.apk"
 		echo 
@@ -195,7 +145,7 @@ zipa () {
 ins () {
 	clear
 	echo 
-	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+	if [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 		echo "Install APK: $fileName.apk (y/N)?"
 		read INPUT
 		if [ x$INPUT -e "xy" || x$INPUT -e "xY" ] ; then
@@ -209,7 +159,7 @@ ins () {
 
 # 7) Zip / Sign / Install APK
 alli () {
-	if [[ -n $fileName ]] && [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+	if [[ -n $fileName ]] && [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 		echo "Enter APK type:"
 		echo "---------------"
 		PS3=$(echo ; echo "Enter selection: ")
@@ -227,7 +177,7 @@ alli () {
 
 # 8)
 apu () {
-	if [[ -n $fileName ]] && [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+	if [[ -n $fileName ]] && [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 		echo "Enter remote APK location."
 		echo "i.e. /system/app/launcher.apk "
 		echo
@@ -438,7 +388,7 @@ frm () {
 	printf "Pull framework-res.apk from an ADB device (Y/n)? "
 	read INPUT
 	if [[ x$INPUT == "xY" || x$INPUT == "xy" || x$INPUT == "x" ]] ;  then
-		if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+		if [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 			echo 
 			echo "Pulling framework-res.apk from device."
 			adb pull /system/framework/framework-res.apk ./framework-res.apk
@@ -554,7 +504,7 @@ apkclean () {
 
 devback () {
 	mkdir -p "apk-backup"
-	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+	if [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 		echo
 		echo "Pulling all APKs from device /data/app/..."
 		echo "(WARNING: This operation can take a long time depending"
@@ -571,7 +521,7 @@ devback () {
 }
 
 devres () {
-	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then
+	if [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 		echo
 		echo "Installing all APKs in ./apk-backup/ to device..."
 		echo "(WARNING: This operation can take a long time depending"
@@ -631,7 +581,7 @@ mkzip () {
 }
 
 pushzip () {
-	if [[ $(stat=$(adb devices); echo ${#stat}) != "25" ]] ; then			# 25 if no device is connected
+	if [[ $(adb devices | grep "device" -c) -gt "1" ]] ; then
 		cd "./projects"
 		echo 
 		echo "Listing ZIP files:"
@@ -703,6 +653,22 @@ viewjar () {
 	fi
 }
 
+crtdirs () {
+	echo "WIP..."
+}
+
+showpkg () {
+	if [[ -n $fileName ]] ; then
+		./tools/aaparser -i "./apk-input/$fileName.apk"
+	else
+		actvfile ; retval=$? ; if [[ $retval == 0 ]]; then clear ; showpkg ; fi
+	fi
+}
+
+fixperm () {
+	echo "WIP..."
+}
+
 restart () {
 	echo 
 	echo "############################### Apk Multi-Tool ################################"
@@ -740,6 +706,9 @@ restart () {
 	echo "  21   Import framework-res.apk  (Perform apktool.jar if framework-res.apk)"
 	echo "  22   Clear Project Files"
 	echo "  23   Set Compression Level     (Current compression level: $clvl)"
+	echo "  24   Create all missing directories"
+	echo "  25   Show APK package information"
+	echo "  99   Fix Tools permissions"
 	echo "  00   Quit"
 	echo "-------------------------------------------------------------------------------"
 	printf "  Active APK File: "
@@ -774,6 +743,8 @@ restart () {
 		21)      frm ;;
 		22)      clr ;;
 		23)   setclv ;;
+		24)  crtdirs ;;
+		25)  showpkg ;;
 		30)  devback ;;
 		31)   apren "../apk-rename/" ;;
 		32)   devres ;;
@@ -781,6 +752,7 @@ restart () {
 		42)  pushzip ;;
 		51)  cls2jar ;;
 		52)  viewjar ;;
+		99)  fixperm ;;
 		"00")   quit ;;
 		 *)
 			echo "Unknown command: '$ANSWER'"
