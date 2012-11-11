@@ -1,10 +1,10 @@
-APKMTool 1.0
+APKMTool 2.0
 Modified by mikko3024
 
 This script set is a modified version of APK Multi-Tools 1.0 for Linux.
 It is modified to support missing features compared to the Windows version and add more features.
 
-Original script is last retrieved on: 2012-09-10
+Original script last retrieved on: 2012-09-10
 at: http://apkmultitool.com/?q=node/5 (APK Multi-Tool LINUX Version 1.0)
 
 Thanks and credits goes to:
@@ -23,6 +23,7 @@ CHANGELOG
 REQUIREMENTS
 - Java 1.6
 - ADB
+- sox
 
 INSTRUCTIONS
 - Place APK in the appropriate folder.
@@ -36,8 +37,7 @@ TROUBLESHOOTING
 2. Your filename has no wierd characters
 3. Java/ADB are in your path
 4. It's not a themed apk (if it is, expect .9 png errors, use as close to stock as possible)
-5. Look at the log to know whats happening
-6. If all else fails, post as much info as possible and we will try to assist you.
+5. If all else fails, post as much info as possible and we will try to assist you.
 
 TERMS and END-USER AGREEMENT
 
