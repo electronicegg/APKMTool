@@ -654,7 +654,13 @@ viewjar () {
 }
 
 crtdirs () {
-	echo "WIP..."
+	mkdir -p apk-input
+	mkdir -p apk-rename
+	mkdir -p apk-sign
+	mkdir -p apk-optimize
+	mkdir -p ogg-optimize
+	echo 
+	echo "Done."
 }
 
 showpkg () {
