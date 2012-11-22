@@ -488,6 +488,7 @@ apkclean () {
 		find $dir -type f -name "*.apk" | while read APK_FILE ;
 		do
 			labl=$(aapt d badging "$APK_FILE" | grep "application: label=" | cut -d "'" -f2)
+			labl=${labl//"&"/"-"}
 			if [[ ! -z $labl ]]; then
 				vers=$(aapt d badging "$APK_FILE" | grep "versionName=" | cut -d "'" -f6)
 			else
@@ -527,9 +528,14 @@ devres () {
 		echo "(WARNING: This operation can take a long time depending"
 		echo "          on the number of APKs)" ; echo 
 
+		totalapp=$(ls ./apk-backup/ | grep ".apk" -c)
+		progress=1
 		find "./apk-backup/" -type f -name "*.apk" | while read APK_FILE ;
 		do
+			echo "App #$progress of $totalapp"
 			adb install -r "$APK_FILE"
+			progress=$((progress+1))
+			echo 
 		done
 	else
 		echo ; echo "Error. No device connected."
