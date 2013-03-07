@@ -528,12 +528,28 @@ devres () {
 		echo "(WARNING: This operation can take a long time depending"
 		echo "          on the number of APKs)" ; echo 
 
+		echo 
+		echo -n "Use Whitelist.txt as filter? (Y/n): "
+		read USE_LIST
+
+		case "$USE_LIST" in
+			"" | "Y" | "y" ) LISTMODE="y"
+				;;
+		esac
+
+		echo 
+
 		totalapp=$(ls ./apk-backup/ | grep ".apk" -c)
 		progress=1
 		find "./apk-backup/" -type f -name "*.apk" | while read APK_FILE ;
 		do
+			CURRENTAPK=${APK_FILE##.*/}
 			echo "App #$progress of $totalapp"
-			adb install -r "$APK_FILE"
+			if [[ $(cat ./apk-backup/Whitelist.txt | grep -c "$CURRENTAPK") != "0" && "$LISTMODE" == "y" ]] ; then
+				adb install -r "$APK_FILE"
+			else
+				echo "$CURRENTAPK is not allowed. Check Whitelist.txt."
+			fi
 			progress=$((progress+1))
 			echo 
 		done
@@ -767,7 +783,7 @@ restart () {
 		51)  cls2jar ;;
 		52)  viewjar ;;
 		99)  fixperm ;;
-		"00")   quit ;;
+		"00"|"exit")   quit ;;
 		 *)
 			echo "Unknown command: '$ANSWER'"
 		;;
@@ -807,8 +823,8 @@ do
 	which "$PROGRAM" > /dev/null 
 	if [ "x$?" = "x1" ] ; then
 		ERROR="1"
-		echo "The program $PROGRAM is missing or is not in your PATH,"
-		echo "please install it or fix your PATH variable"
+		echo ; echo ; echo "The program $PROGRAM is missing or is not in your PATH."
+		echo ; echo "Please install it or fix your PATH variable"
 	fi
 done
 if [ "x$ERROR" = "x1" ] ; then
